@@ -1,0 +1,22 @@
+{
+  "name": "euqityproject",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mydelove/EuqityProject.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mydelove/EuqityProject/issues"
+  },
+  "homepage": "https://github.com/mydelove/EuqityProject#readme",
+  "dependencies": {
+    "apifm-wxapi": "^3.8.0"
+  }
+}
