@@ -22,19 +22,14 @@
     "selectedIconPath": "pages/image/home_cpnc_narket.png",
     "iconPath": "pages/image/home_cpnc_narket_no.png",
     "pagePath": "pages/shop/shop",
-    "text": "页面2"
+    "text": "发现"
     },
-    {
-     "selectedIconPath": "pages/image/weixin_select.png",
-     "iconPath": "pages/image/weixin_select_no.png",
-     "pagePath": "pages/user/user",
-     "text": "页面3"
-    },
+    
     {
      "selectedIconPath": "pages/image/home_mine.png",
      "iconPath": "pages/image/home_mine_no.png",
      "pagePath": "pages/index/index",
-     "text": "页面4"
+     "text": "我的"
     }
     
     ]

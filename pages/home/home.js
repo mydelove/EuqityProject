@@ -1,238 +1,322 @@
 const WXAPI = require('apifm-wxapi')
-const AUTH = require('../../utils/auth')
+const TOOLS = require('../../utils/tools.js')
 
-var sliderWidth = 96; // 需要设置slider的宽度，用于计算中间位置
+const APP = getApp()
+// fixed首次打开不显示标题的bug
+// APP.configLoadOK = () => {
+//   wx.setNavigationBarTitle({
+//     title: wx.getStorageSync('mallName')
+//   })
+// }
+
 Page({
-
-  /**
-   * 页面的初始数据
-   */
   data: {
-    tabs: ["可领券", "已领券", "已失效"],
-    activeIndex: 0,
+    inputVal: "", // 搜索框内容
+    goodsRecommend: [], // 推荐商品
+    kanjiaList: [], //砍价商品列表
+    pingtuanList: [], //拼团商品列表
 
-    showPwdPop: false
+    loadingHidden: false, // loading
+    selectCurrent: 0,
+    categories: [],
+    activeCategoryId: 0,
+    goods: [],
+
+    scrollTop: 0,
+    loadingMoreHidden: true,
+
+    coupons: [],
+
+    curPage: 1,
+    pageSize: 20,
+    cateScrollTop: 0
   },
 
-  /**
-   * 生命周期函数--监听页面加载
-   */
-  onLoad: function (e) {
-
+  tabClick: function (e) {
+    wx.setStorageSync("_categoryId", e.currentTarget.id)
+    wx.switchTab({
+      url: '/pages/category/category',
+    })
+    // wx.navigateTo({
+    //   url: '/pages/goods/list?categoryId=' + e.currentTarget.id,
+    // })
   },
-
-  /**
-   * 生命周期函数--监听页面初次渲染完成
-   */
-  onReady: function () {
-
-  },
-
-  /**
-   * 生命周期函数--监听页面显示
-   */
-  onShow: function () {
-    if (this.data.activeIndex == 0) {
-      this.sysCoupons()
-    }
-    AUTH.checkHasLogined().then(isLogined => {
-      if (isLogined) {
-        if (this.data.activeIndex == 1) {
-          this.getMyCoupons()
-        }
-        if (this.data.activeIndex == 2) {
-          this.invalidCoupons()
-        }
-      }
+  toDetailsTap: function (e) {
+    wx.navigateTo({
+      url: "/pages/goods-details/index?id=" + e.currentTarget.dataset.id
     })
   },
-  /**
-   * 生命周期函数--监听页面隐藏
-   */
-  onHide: function () {
-
+  tapBanner: function (e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.navigateTo({
+        url
+      })
+    }
   },
-
-  /**
-   * 生命周期函数--监听页面卸载
-   */
-  onUnload: function () {
-
+  adClick: function (e) {
+    const url = e.currentTarget.dataset.url
+    if (url) {
+      wx.navigateTo({
+        url
+      })
+    }
   },
-
-  /**
-   * 页面相关事件处理函数--监听用户下拉动作
-   */
-  onPullDownRefresh: function () {
-
-  },
-
-  /**
-   * 页面上拉触底事件的处理函数
-   */
-  onReachBottom: function () {
-
-  },
-  tabClick: function (e) {
+  bindTypeTap: function (e) {
     this.setData({
-      activeIndex: e.currentTarget.dataset.id
-    });
-    if (this.data.activeIndex == 0) {
-      this.sysCoupons()
+      selectCurrent: e.index
+    })
+  },
+  onLoad: function (e) {
+    wx.showShareMenu({
+      withShareTicket: true
+    })
+    const that = this
+    if (e && e.scene) {
+      const scene = decodeURIComponent(e.scene)
+      if (scene) {
+        wx.setStorageSync('referrer', scene.substring(11))
+      }
     }
-    if (this.data.activeIndex == 1) {
-      this.getMyCoupons()
-    }
-    if (this.data.activeIndex == 2) {
-      this.invalidCoupons()
+    wx.setNavigationBarTitle({
+      title: wx.getStorageSync('mallName')
+    })
+    this.initBanners()
+    this.categories()
+    WXAPI.goods({
+      recommendStatus: 1
+    }).then(res => {
+      if (res.code === 0) {
+        that.setData({
+          goodsRecommend: res.data
+        })
+      }
+    })
+    that.getCoupons()
+    that.getNotice()
+    that.kanjiaGoods()
+    that.pingtuanGoods()
+    this.wxaMpLiveRooms()
+  },
+  async miaoshaGoods() {
+    const res = await WXAPI.goods({
+      miaosha: true
+    })
+    if (res.code == 0) {
+      res.data.forEach(ele => {
+        const _now = new Date().getTime()
+        if (ele.dateStart) {
+          ele.dateStartInt = new Date(ele.dateStart).getTime() - _now
+        }
+        if (ele.dateEnd) {
+          ele.dateEndInt = new Date(ele.dateEnd).getTime() - _now
+        }
+      })
+      this.setData({
+        miaoshaGoods: res.data
+      })
     }
   },
-  sysCoupons: function () { // 读取可领取券列表
-    var _this = this;
+  async wxaMpLiveRooms() {
+    const res = await WXAPI.wxaMpLiveRooms()
+    if (res.code == 0 && res.data.length > 0) {
+      this.setData({
+        aliveRooms: res.data
+      })
+    }
+  },
+  async initBanners() {
+    const _data = {}
+    // 读取头部轮播图
+    const res1 = await WXAPI.banners({
+      type: 'index'
+    })
+    if (res1.code == 700) {
+      wx.showModal({
+        title: '提示',
+        content: '请在后台添加 banner 轮播图片，自定义类型填写 index',
+        showCancel: false
+      })
+    } else {
+      _data.banners = res1.data
+    }
+    this.setData(_data)
+  },
+  onShow: function (e) {
+    this.setData({
+      shopInfo: wx.getStorageSync('shopInfo')
+    })
+    // 获取购物车数据，显示TabBarBadge
+    TOOLS.showTabBarBadge()
+    this.goodsDynamic()
+    this.miaoshaGoods()
+  },
+  async goodsDynamic() {
+    const res = await WXAPI.goodsDynamic(0)
+    if (res.code == 0) {
+      this.setData({
+        goodsDynamic: res.data
+      })
+    }
+  },
+  async categories() {
+    const res = await WXAPI.goodsCategory()
+    let categories = [];
+    if (res.code == 0) {
+      const _categories = res.data.filter(ele => {
+        return ele.level == 1
+      })
+      categories = categories.concat(_categories)
+    }
+    this.setData({
+      categories: categories,
+      activeCategoryId: 0,
+      curPage: 1
+    });
+    this.getGoodsList(0);
+  },
+  onPageScroll(e) {
+    let scrollTop = this.data.scrollTop
+    this.setData({
+      scrollTop: e.scrollTop
+    })
+  },
+  async getGoodsList(categoryId, append) {
+    if (categoryId == 0) {
+      categoryId = "";
+    }
+    wx.showLoading({
+      "mask": true
+    })
+    const res = await WXAPI.goods({
+      categoryId: categoryId,
+      page: this.data.curPage,
+      pageSize: this.data.pageSize
+    })
+    wx.hideLoading()
+    if (res.code == 404 || res.code == 700) {
+      let newData = {
+        loadingMoreHidden: false
+      }
+      if (!append) {
+        newData.goods = []
+      }
+      this.setData(newData);
+      return
+    }
+    let goods = [];
+    if (append) {
+      goods = this.data.goods
+    }
+    for (var i = 0; i < res.data.length; i++) {
+      goods.push(res.data[i]);
+    }
+    this.setData({
+      loadingMoreHidden: true,
+      goods: goods,
+    });
+  },
+  getCoupons: function () {
+    var that = this;
     WXAPI.coupons().then(function (res) {
       if (res.code == 0) {
-        _this.setData({
+        that.setData({
           coupons: res.data
         });
-      } else {
-        _this.setData({
-          coupons: null
+      }
+    })
+  },
+  onShareAppMessage: function () {
+    return {
+      title: '"' + wx.getStorageSync('mallName') + '" ' + wx.getStorageSync('share_profile'),
+      path: '/pages/index/index?inviter_id=' + wx.getStorageSync('uid')
+    }
+  },
+  getNotice: function () {
+    var that = this;
+    WXAPI.noticeList({ pageSize: 5 }).then(function (res) {
+      if (res.code == 0) {
+        that.setData({
+          noticeList: res.data
         });
       }
     })
   },
-  getCounpon2() {
-    if (!this.data.couponPwd) {
-      wx.showToast({
-        title: '请输入口令',
-        icon: 'none'
-      })
-      return
-    }
-    const e = {
-      kl: true,
-      currentTarget: {
-        dataset: {
-          id: this.data.pwdCounponId
-        }
-      }
-    }
-    this.getCounpon(e)
-  },
-  getCounpon: function (e) {
-    const that = this
-    if (e.currentTarget.dataset.pwd) {
-      this.setData({
-        pwdCounponId: e.currentTarget.dataset.id,
-        showPwdPop: true
-      })
-      return
-    } else {
-      if (!e.kl) {
-        this.data.couponPwd = ''
-      }
-    }
+  onReachBottom: function () {
     this.setData({
-      showPwdPop: false
-    })
-    WXAPI.fetchCoupons({
-      id: e.currentTarget.dataset.id,
-      token: wx.getStorageSync('token'),
-      pwd: this.data.couponPwd
-    }).then(function (res) {
-      if (res.code == 20001 || res.code == 20002) {
-        wx.showModal({
-          title: '错误',
-          content: '来晚了',
-          showCancel: false
-        })
-        return;
-      }
-      if (res.code == 20003) {
-        wx.showModal({
-          title: '错误',
-          content: '你领过了，别贪心哦~',
-          showCancel: false
-        })
-        return;
-      }
-      if (res.code == 30001) {
-        wx.showModal({
-          title: '错误',
-          content: '您的积分不足',
-          showCancel: false
-        })
-        return;
-      }
-      if (res.code == 20004) {
-        wx.showModal({
-          title: '错误',
-          content: '已过期~',
-          showCancel: false
-        })
-        return;
-      }
-      if (res.code == 0) {
-        wx.showToast({
-          title: '领取成功',
-          icon: 'success'
-        })
-      } else {
-        wx.showModal({
-          title: '错误',
-          content: res.msg,
-          showCancel: false
-        })
-      }
-    })
+      curPage: this.data.curPage + 1
+    });
+    this.getGoodsList(this.data.activeCategoryId, true)
   },
-  getMyCoupons: function () {
-    var _this = this;
-    WXAPI.myCoupons({
-      token: wx.getStorageSync('token'),
-      status: 0
-    }).then(function (res) {
-      if (res.code == 0) {
+  onPullDownRefresh: function () {
+    this.setData({
+      curPage: 1
+    });
+    this.getGoodsList(this.data.activeCategoryId)
+    wx.stopPullDownRefresh()
+  },
+  // 获取砍价商品
+  async kanjiaGoods() {
+    const res = await WXAPI.goods({
+      kanjia: true
+    });
+    if (res.code == 0) {
+      const kanjiaGoodsIds = []
+      res.data.forEach(ele => {
+        kanjiaGoodsIds.push(ele.id)
+      })
+      const goodsKanjiaSetRes = await WXAPI.kanjiaSet(kanjiaGoodsIds.join())
+      if (goodsKanjiaSetRes.code == 0) {
         res.data.forEach(ele => {
-          if (ele.dateEnd) {
-            ele.dateEnd = ele.dateEnd.split(" ")[0]
+          const _process = goodsKanjiaSetRes.data.find(_set => {
+            console.log(_set)
+            return _set.goodsId == ele.id
+          })
+          console.log(ele)
+          console.log(_process)
+          if (_process) {
+            ele.process = 100 * _process.numberBuy / _process.number
           }
         })
-        _this.setData({
-          coupons: res.data
+        this.setData({
+          kanjiaList: res.data
         })
-      } else {
+      }
+    }
+  },
+  goCoupons: function (e) {
+    wx.navigateTo({
+      url: "/pages/coupons/index"
+    })
+  },
+  pingtuanGoods() { // 获取团购商品列表
+    const _this = this
+    WXAPI.goods({
+      pingtuan: true
+    }).then(res => {
+      if (res.code === 0) {
         _this.setData({
-          coupons: null
+          pingtuanList: res.data
         })
       }
     })
   },
-  invalidCoupons: function () {
-    var _this = this;
-    WXAPI.myCoupons({
-      token: wx.getStorageSync('token'),
-      status: '1,2,3'
-    }).then(function (res) {
-      if (res.code == 0) {
-        _this.setData({
-          coupons: res.data
-        })
-      } else {
-        _this.setData({
-          coupons: null
-        })
-      }
-    })
-  },
-  toIndexPage: function () {
-    wx.switchTab({
-      url: "/pages/index/index"
-    });
-  },
-  pwdCouponChange(e) {
+  bindinput(e) {
     this.setData({
-      couponPwd: e.detail.value
+      inputVal: e.detail.value
     })
   },
+  bindconfirm(e) {
+    this.setData({
+      inputVal: e.detail.value
+    })
+    wx.navigateTo({
+      url: '/pages/goods/list?name=' + this.data.inputVal,
+    })
+  },
+  goSearch() {
+    wx.navigateTo({
+      url: '/pages/goods/list?name=' + this.data.inputVal,
+    })
+  }
 })
