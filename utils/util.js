@@ -1,19 +1,22 @@
-const formatTime = date => {
-  const year = date.getFullYear()
-  const month = date.getMonth() + 1
-  const day = date.getDate()
-  const hour = date.getHours()
-  const minute = date.getMinutes()
-  const second = date.getSeconds()
 
-  return [year, month, day].map(formatNumber).join('/') + ' ' + [hour, minute, second].map(formatNumber).join(':')
+/**
+  *map转换为json
+  */
+function mapToJson(map) {
+
+  return JSON.stringify(strMapToObj(map));
 }
 
-const formatNumber = n => {
-  n = n.toString()
-  return n[1] ? n : '0' + n
+
+/**
+ *map转化为对象（map所有键都是字符串，可以将其转换为对象）
+ */
+function strMapToObj(strMap) {
+  let obj = Object.create(null);
+  for (let [k, v] of strMap) {
+    obj[k] = v;
+  }
+  return obj;
 }
 
-module.exports = {
-  formatTime: formatTime
-}
+module.exports = { mapToJson: mapToJson }

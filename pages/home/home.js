@@ -1,4 +1,9 @@
+import baseNetwork from "../../utils/baseNetwork.js";
+var network = require('../../utils/network.js');
+var configurl = require('../../utils/config.js');
+var utilsMap = require('../../utils/util.js');
 const WXAPI = require('apifm-wxapi')
+
 const TOOLS = require('../../utils/tools.js')
 
 const APP = getApp()
@@ -11,6 +16,11 @@ const APP = getApp()
 
 Page({
   data: {
+    //首页轮播图数据
+    bannerData: [],
+    indicatorDots: false,
+    interval: 3000,
+    duration: 800,
     inputVal: "", // 搜索框内容
     goodsRecommend: [], // 推荐商品
     kanjiaList: [], //砍价商品列表
@@ -31,7 +41,44 @@ Page({
     pageSize: 20,
     cateScrollTop: 0
   },
+  /**
+   * 请求轮播图与首页列表数据
+   */
+  loadData() {
+    var that = this;
+    //首页轮播图
+    baseNetwork.getHomeBanner().then(
+      function (res) {
+        that.setData({
+          bannerData: res.data
+        })
+      })
 
+
+
+
+     //首页列表
+    baseNetwork.article(this.data.pageNum)
+      .then(
+        function (res) {
+          var responseList = [];
+
+          that.data.isFirstRequest ? responseList = res.data.datas : responseList = that.data.homeData.concat(res.data.datas)
+          that.setData({
+            homeData: responseList,
+          })
+          wx.hideLoading();
+
+          // 隐藏导航栏加载框
+          wx.hideNavigationBarLoading();
+          // 停止下拉动作
+          wx.stopPullDownRefresh();
+
+        }
+
+      )
+
+  },
   tabClick: function (e) {
     wx.setStorageSync("_categoryId", e.currentTarget.id)
     wx.switchTab({
@@ -81,8 +128,10 @@ Page({
     wx.setNavigationBarTitle({
       title: wx.getStorageSync('mallName')
     })
+    this.loadData()
     this.initBanners()
     this.categories()
+    
     WXAPI.goods({
       recommendStatus: 1
     }).then(res => {

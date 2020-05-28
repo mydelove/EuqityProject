@@ -12,8 +12,9 @@
 </navigator> -->
 <view class="swiper-container">
   <swiper class="swiper1" indicator-dots="true" indicator-active-color="#fff" autoplay circular>
-    <swiper-item wx:for="{{banners}}" wx:key="id">
-      <image  mode="aspectFill" bindtap="tapBanner" data-url="{{item.linkUrl}}" src="{{item.picUrl}}" />
+    <swiper-item wx:for="{{bannerData}}" wx:key="imagePath">
+     <image class="home-image" src="{{item.imagePath}}" />
+      <!-- <image  mode="aspectFill" bindtap="tapBanner" data-url="{{item.linkUrl}}" src="{{item.picUrl}}" /> -->
     </swiper-item>
   </swiper>
   <view class="search">
